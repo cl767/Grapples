@@ -21,7 +21,7 @@ const floor = new THREE.Mesh(
 floor.rotation.x = -Math.PI / 2;
 scene.add(floor);
 
-// Target Boxes to Grapple Onto
+// Target Boxes to Grapple & Collide Onto
 const targets = [];
 const boxGeo = new THREE.BoxGeometry(4, 4, 4);
 const boxMat = new THREE.MeshStandardMaterial({ color: 0x0077ff });
@@ -43,6 +43,7 @@ camera.position.set(0, 2, 15);
 const moveState = { forward: false, backward: false, left: false, right: false };
 let euler = new THREE.Euler(0, 0, 0, 'YXZ');
 const moveSpeed = 0.15;
+const playerRadius = 0.8; // Player collision size
 
 // Grapple State
 const raycaster = new THREE.Raycaster();
@@ -79,9 +80,9 @@ window.addEventListener('keyup', (e) => {
     if (e.code === 'KeyD') moveState.right = false;
 });
 
-// Right-Click or 'E' key to Grapple
+// Right-Click to Grapple
 window.addEventListener('mousedown', (e) => {
-    if (e.button === 2) { // Right click
+    if (e.button === 2) {
         e.preventDefault();
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObjects(targets);
@@ -98,14 +99,34 @@ window.addEventListener('mouseup', (e) => {
     }
 });
 
-// Prevent context menu on right click so grappling works smoothly
 window.addEventListener('contextmenu', e => e.preventDefault());
+
+// Collision Detection Function
+function canMoveTo(pos) {
+    if (Math.abs(pos.x) > 48 || Math.abs(pos.z) > 48) return false; // Floor boundary
+
+    for (let box of targets) {
+        const bPos = box.position;
+        // Box size is 4x4x4 (half-size = 2)
+        const minX = bPos.x - 2 - playerRadius;
+        const maxX = bPos.x + 2 + playerRadius;
+        const minZ = bPos.z - 2 - playerRadius;
+        const maxZ = bPos.z + 2 + playerRadius;
+        const minY = bPos.y - 2;
+        const maxY = bPos.y + 2;
+
+        if (pos.x > minX && pos.x < maxX && pos.z > minZ && pos.z < maxZ && pos.y > minY && pos.y < maxY) {
+            return false; // Collision!
+        }
+    }
+    return true;
+}
 
 // Game Loop
 function animate() {
     requestAnimationFrame(animate);
 
-    // WASD Vector calculations
+    // Movement Direction Vectors
     const dir = new THREE.Vector3();
     camera.getWorldDirection(dir);
     dir.y = 0;
@@ -113,10 +134,23 @@ function animate() {
 
     const sideDir = new THREE.Vector3(-dir.z, 0, dir.x);
 
-    if (moveState.forward) camera.position.addScaledVector(dir, moveSpeed);
-    if (moveState.backward) camera.position.addScaledVector(dir, -moveSpeed);
-    if (moveState.left) camera.position.addScaledVector(sideDir, moveSpeed);
-    if (moveState.right) camera.position.addScaledVector(sideDir, -moveSpeed);
+    let moveDir = new THREE.Vector3(0, 0, 0);
+    if (moveState.forward) moveDir.add(dir);
+    if (moveState.backward) moveDir.sub(dir);
+    if (moveState.left) moveDir.sub(sideDir);   // Fixed A/D strafe inversion
+    if (moveState.right) moveDir.add(sideDir); // Fixed A/D strafe inversion
+    moveDir.normalize();
+
+    // Apply movement with axis-separated collision sliding
+    if (moveDir.length() > 0) {
+        const stepX = new THREE.Vector3(moveDir.x * moveSpeed, 0, 0);
+        const nextX = camera.position.clone().add(stepX);
+        if (canMoveTo(nextX)) camera.position.x = nextX.x;
+
+        const stepZ = new THREE.Vector3(0, 0, moveDir.z * moveSpeed);
+        const nextZ = camera.position.clone().add(stepZ);
+        if (canMoveTo(nextZ)) camera.position.z = nextZ.z;
+    }
 
     // Grappling Hook Pull Logic
     if (grappleTarget) {
@@ -125,9 +159,14 @@ function animate() {
         
         if (distance > 3) {
             pullDir.normalize();
-            camera.position.addScaledVector(pullDir, 0.4); // Pull speed towards target
+            const nextPullPos = camera.position.clone().addScaledVector(pullDir, 0.4);
+            if (canMoveTo(nextPullPos)) {
+                camera.position.copy(nextPullPos);
+            } else {
+                grappleTarget = null; // Stop if colliding mid-grapple
+            }
         } else {
-            grappleTarget = null; // Release when close enough
+            grappleTarget = null;
         }
     }
 
