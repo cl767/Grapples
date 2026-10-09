@@ -1,0 +1,142 @@
+!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Tetris Arcade</title>
+    <!-- Tailwind CSS for modern layout utility classes -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Press Start 2P & Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        arcade: ['"Press Start 2P"', 'monospace'],
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        neonCyan: '#00f0ff',
+                        neonPink: '#ff007f',
+                        neonPurple: '#9d00ff',
+                        neonGreen: '#00ff66',
+                        neonYellow: '#ffea00',
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="text-white flex flex-col items-center justify-between p-3 sm:p-6 select-none overflow-x-hidden">
+
+    <!-- Header / Navbar -->
+    <header class="w-full max-w-4xl flex items-center justify-between mb-4 bg-slate-900/60 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-slate-700 shadow-2xl">
+        <div class="flex items-center space-x-3">
+            <div class="w-4 h-4 rounded-full bg-neonPink animate-ping"></div>
+            <h1 class="font-arcade text-lg sm:text-2xl neon-text tracking-wider">TETRIS<span class="text-neonPink">.</span>JS</h1>
+        </div>
+        <div class="flex items-center space-x-2 sm:space-x-4">
+            <button id="soundToggleBtn" onclick="toggleSound()" class="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs sm:text-sm font-semibold flex items-center space-x-1 transition active:scale-95">
+                <span id="soundIcon">🔊</span> <span class="hidden sm:inline">Sound</span>
+            </button>
+            <button onclick="toggleTheme()" class="p-2 sm:px-3 sm:py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs sm:text-sm font-semibold flex items-center space-x-1 transition active:scale-95">
+                <span>🎨</span> <span class="hidden sm:inline" id="themeLabel">Cyber</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Workspace -->
+    <main class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-4 items-center justify-center my-auto">
+        
+        <!-- Left Panel: Hold & Stats -->
+        <div class="flex md:flex-col flex-row justify-around md:justify-start gap-4 order-2 md:order-1 w-full">
+            <!-- Hold Box -->
+            <div class="bg-slate-900/80 backdrop-blur-md border border-slate-700 p-4 rounded-2xl shadow-xl flex flex-col items-center flex-1 md:flex-none">
+                <h2 class="font-arcade text-xs text-slate-400 mb-2 uppercase tracking-widest">Hold</h2>
+                <div class="w-20 h-20 sm:w-24 sm:h-24 bg-black/50 rounded-xl border border-slate-800 flex items-center justify-center relative overflow-hidden">
+                    <canvas id="holdCanvas" width="80" height="80" class="w-full h-full"></canvas>
+                </div>
+            </div>
+
+            <!-- Stats Box -->
+            <div class="bg-slate-900/80 backdrop-blur-md border border-slate-700 p-4 rounded-2xl shadow-xl flex flex-col justify-center flex-1 md:flex-none space-y-2">
+                <div class="flex justify-between items-center text-xs sm:text-sm">
+                    <span class="text-slate-400 font-semibold">Score:</span>
+                    <span id="scoreVal" class="font-arcade text-neonCyan text-sm sm:text-base">0</span>
+                </div>
+                <div class="flex justify-between items-center text-xs sm:text-sm">
+                    <span class="text-slate-400 font-semibold">Lines:</span>
+                    <span id="linesVal" class="font-arcade text-neonPink text-sm sm:text-base">0</span>
+                </div>
+                <div class="flex justify-between items-center text-xs sm:text-sm">
+                    <span class="text-slate-400 font-semibold">Level:</span>
+                    <span id="levelVal" class="font-arcade text-neonYellow text-sm sm:text-base">1</span>
+                </div>
+                <div class="flex justify-between items-center text-xs sm:text-sm border-t border-slate-800 pt-2">
+                    <span class="text-slate-400 font-semibold">High:</span>
+                    <span id="highVal" class="font-arcade text-white text-sm sm:text-base">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Panel: Game Canvas & Overlays -->
+        <div class="relative order-1 md:order-2 flex justify-center">
+            <div class="relative bg-black/80 rounded-2xl p-2 border-2 border-neonCyan neon-box-cyan shadow-2xl overflow-hidden">
+                <canvas id="tetrisCanvas" width="300" height="600" class="block w-full max-w-[260px] sm:max-w-[300px] h-auto rounded-lg"></canvas>
+                
+                <!-- Start / Pause / Game Over Overlay -->
+                <div id="gameOverlay" class="absolute inset-0 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center z-20 transition-opacity duration-300">
+                    <h2 id="overlayTitle" class="font-arcade text-2xl sm:text-3xl neon-text mb-2">NEON TETRIS</h2>
+                    <p id="overlaySub" class="text-slate-300 text-xs sm:text-sm mb-6 max-w-xs font-sans">Clear lines, score points, and ascend through cyber levels!</p>
+                    <button id="actionBtn" onclick="startGame()" class="px-6 py-3 bg-gradient-to-r from-neonCyan to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-arcade text-xs sm:text-sm rounded-xl shadow-[0_0_20px_rgba(0,240,255,0.5)] transition transform hover:scale-105 active:scale-95">
+                        START GAME
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Next Piece & Controls Guide -->
+        <div class="flex md:flex-col flex-row justify-around md:justify-start gap-4 order-3 md:order-3 w-full">
+            <!-- Next Piece Box -->
+            <div class="bg-slate-900/80 backdrop-blur-md border border-slate-700 p-4 rounded-2xl shadow-xl flex flex-col items-center flex-1 md:flex-none">
+                <h2 class="font-arcade text-xs text-slate-400 mb-2 uppercase tracking-widest">Next</h2>
+                <div class="w-20 h-20 sm:w-24 sm:h-24 bg-black/50 rounded-xl border border-slate-800 flex items-center justify-center relative overflow-hidden">
+                    <canvas id="nextCanvas" width="80" height="80" class="w-full h-full"></canvas>
+                </div>
+            </div>
+
+            <!-- Controls Quick Guide -->
+            <div class="bg-slate-900/80 backdrop-blur-md border border-slate-700 p-4 rounded-2xl shadow-xl hidden md:flex flex-col space-y-1 text-xs text-slate-400">
+                <div class="font-arcade text-[10px] text-neonCyan mb-1 uppercase">Controls</div>
+                <div class="flex justify-between"><span>Move:</span> <span class="text-white font-mono">← / →</span></div>
+                <div class="flex justify-between"><span>Soft Drop:</span> <span class="text-white font-mono">↓</span></div>
+                <div class="flex justify-between"><span>Hard Drop:</span> <span class="text-white font-mono">Space</span></div>
+                <div class="flex justify-between"><span>Rotate:</span> <span class="text-white font-mono">↑ / X</span></div>
+                <div class="flex justify-between"><span>Hold:</span> <span class="text-white font-mono">C / Shift</span></div>
+                <div class="flex justify-between"><span>Pause:</span> <span class="text-white font-mono">P / Esc</span></div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer Controls & Attribution -->
+    <footer class="w-full max-w-4xl mt-4 flex flex-col items-center space-y-3">
+        <!-- On-Screen Touch Buttons for Mobile/Tablet -->
+        <div class="grid grid-cols-5 gap-2 w-full max-w-md md:hidden px-2">
+            <button ontouchstart="handleTouchAction('left')" onclick="moveLeft()" class="bg-slate-800/90 active:bg-slate-700 border border-slate-600 rounded-xl py-3 flex items-center justify-center text-lg shadow-lg">⬅️</button>
+            <button ontouchstart="handleTouchAction('right')" onclick="moveRight()" class="bg-slate-800/90 active:bg-slate-700 border border-slate-600 rounded-xl py-3 flex items-center justify-center text-lg shadow-lg">➡️</button>
+            <button ontouchstart="handleTouchAction('rotate')" onclick="rotatePiece()" class="bg-slate-800/90 active:bg-slate-700 border border-slate-600 rounded-xl py-3 flex items-center justify-center text-lg shadow-lg">🔄</button>
+            <button ontouchstart="handleTouchAction('drop')" onclick="hardDrop()" class="bg-slate-800/90 active:bg-slate-700 border border-slate-600 rounded-xl py-3 flex items-center justify-center text-lg shadow-lg">⏬</button>
+            <button ontouchstart="handleTouchAction('hold')" onclick="holdPieceAction()" class="bg-slate-800/90 active:bg-slate-700 border border-slate-600 rounded-xl py-3 flex items-center justify-center text-lg shadow-lg">📥</button>
+        </div>
+        <div class="text-slate-500 text-[10px] sm:text-xs text-center font-sans">
+            Built with HTML5 Canvas, Tailwind CSS, & Web Audio API
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+/* STREAMING_CHUNK:Writing style.css styles... */
+.neon-box-cyan {
+box-shadow: 0 0 15px rgba(0, 240, 255, 0.4), inset 0 0 15px rgba(0, 240, 255, 0.2);
+}
+.neon-box-pink {
+box-shadow: 0 0 15px rgba(255, 0, 127, 0.4), inset 0 0 15px rgba(255, 0, 127, 0.2);
+}
+.neon-text {
+text-shadow: 0 0 10px rgba(0, 240, 255, 0.7), 0 0 20px rgba(0, 240, 255, 0.5);
+}
+.neon-text-pink {
+text-shadow: 0 0 10px rgba(255, 0, 127, 0.7), 0 0 20px rgba(255, 0, 127, 0.5);
+}
+body {
+background: radial-gradient(circle at center, #120b29 0%, #05020a 100%);
+min-height: 100vh;
+}
