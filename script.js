@@ -1,3 +1,4 @@
+// Scene, Camera, Renderer Setup
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111122);
 
@@ -6,12 +7,13 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
+// Lighting
 scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
 dirLight.position.set(10, 20, 10);
 scene.add(dirLight);
 
-// Floor & Targets
+// Floor
 const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(100, 100),
     new THREE.MeshStandardMaterial({ color: 0x333333 })
@@ -19,26 +21,35 @@ const floor = new THREE.Mesh(
 floor.rotation.x = -Math.PI / 2;
 scene.add(floor);
 
-for (let i = 0; i < 15; i++) {
-    const box = new THREE.Mesh(
-        new THREE.BoxGeometry(4, 4, 4),
-        new THREE.MeshStandardMaterial({ color: 0x0077ff })
-    );
+// Target Boxes to Grapple Onto
+const targets = [];
+const boxGeo = new THREE.BoxGeometry(4, 4, 4);
+const boxMat = new THREE.MeshStandardMaterial({ color: 0x0077ff });
+
+for (let i = 0; i < 20; i++) {
+    const box = new THREE.Mesh(boxGeo, boxMat);
     box.position.set(
-        (Math.random() - 0.5) * 60,
-        Math.random() * 15 + 2,
-        (Math.random() - 0.5) * 60
+        (Math.random() - 0.5) * 70,
+        Math.random() * 15 + 3,
+        (Math.random() - 0.5) * 70
     );
     scene.add(box);
+    targets.push(box);
 }
 
-camera.position.set(0, 2, 10);
+camera.position.set(0, 2, 15);
 
-// Controls State
+// Controls & State
 const moveState = { forward: false, backward: false, left: false, right: false };
 let euler = new THREE.Euler(0, 0, 0, 'YXZ');
-const moveSpeed = 0.1;
+const moveSpeed = 0.15;
 
+// Grapple State
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2(0, 0); // center of screen
+let grappleTarget = null;
+
+// Pointer Lock for Mouse Look
 window.addEventListener('click', () => {
     document.body.requestPointerLock();
 });
@@ -53,6 +64,7 @@ window.addEventListener('mousemove', (e) => {
     }
 });
 
+// Keyboard Movement Listeners
 window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyW') moveState.forward = true;
     if (e.code === 'KeyS') moveState.backward = true;
@@ -67,10 +79,33 @@ window.addEventListener('keyup', (e) => {
     if (e.code === 'KeyD') moveState.right = false;
 });
 
+// Right-Click or 'E' key to Grapple
+window.addEventListener('mousedown', (e) => {
+    if (e.button === 2) { // Right click
+        e.preventDefault();
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(targets);
+
+        if (intersects.length > 0) {
+            grappleTarget = intersects[0].point;
+        }
+    }
+});
+
+window.addEventListener('mouseup', (e) => {
+    if (e.button === 2) {
+        grappleTarget = null;
+    }
+});
+
+// Prevent context menu on right click so grappling works smoothly
+window.addEventListener('contextmenu', e => e.preventDefault());
+
+// Game Loop
 function animate() {
     requestAnimationFrame(animate);
 
-    // Movement logic
+    // WASD Vector calculations
     const dir = new THREE.Vector3();
     camera.getWorldDirection(dir);
     dir.y = 0;
@@ -83,10 +118,24 @@ function animate() {
     if (moveState.left) camera.position.addScaledVector(sideDir, moveSpeed);
     if (moveState.right) camera.position.addScaledVector(sideDir, -moveSpeed);
 
+    // Grappling Hook Pull Logic
+    if (grappleTarget) {
+        const pullDir = new THREE.Vector3().subVectors(grappleTarget, camera.position);
+        const distance = pullDir.length();
+        
+        if (distance > 3) {
+            pullDir.normalize();
+            camera.position.addScaledVector(pullDir, 0.4); // Pull speed towards target
+        } else {
+            grappleTarget = null; // Release when close enough
+        }
+    }
+
     renderer.render(scene, camera);
 }
 animate();
 
+// Window Resizing
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
